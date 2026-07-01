@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:IyziPanel}",
+            "name": "Debug IyziPanel",
+            "target": "IyziPanel",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug IyziPanel"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:IyziPanel}",
+            "name": "Release IyziPanel",
+            "target": "IyziPanel",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release IyziPanel"
+        }
+    ]
+}
