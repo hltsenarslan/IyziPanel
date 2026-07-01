@@ -179,6 +179,21 @@ final class DockController {
     // MARK: - Eylemler
 
     private func launch(_ item: AppItem) {
+        // "Yeni pencere": zaten açık uygulamada yeni pencere açmak NSWorkspace ile
+        // mümkün değil (argümanlar yalnızca yeni süreç başlarken geçer). Electron
+        // editörlerinin (VS Code, Cursor, VSCodium) bundle içindeki CLI'siyle çöz.
+        if item.launchMode == .newWindow, let cli = Self.newWindowCLI(for: item.url) {
+            let process = Process()
+            process.executableURL = cli
+            process.arguments = ["--new-window"]
+            do {
+                try process.run()
+            } catch {
+                NSLog("Yeni pencere açılamadı: \(error.localizedDescription)")
+            }
+            return
+        }
+
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
 
@@ -189,7 +204,8 @@ final class DockController {
             // Zaten açık olsa bile yeni bir kopya (destekleyen uygulamalar).
             config.createsNewApplicationInstance = true
         case .newWindow:
-            // Mevcut kopyada yeni pencere aç (VS Code vb. Electron uygulamaları).
+            // CLI bulunamadıysa en iyi çaba: yeni süreçte --new-window argümanı.
+            config.createsNewApplicationInstance = true
             config.arguments = ["--new-window"]
         }
 
@@ -198,6 +214,22 @@ final class DockController {
                 NSLog("Uygulama açılamadı: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Electron editörlerinin `Contents/Resources/app/bin/` altındaki launcher CLI'si.
+    private static func newWindowCLI(for appURL: URL) -> URL? {
+        let binDir = appURL.appendingPathComponent("Contents/Resources/app/bin")
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: binDir, includingPropertiesForKeys: [.isExecutableKey]) else { return nil }
+
+        let candidates = files.filter { file in
+            let name = file.lastPathComponent
+            return !name.contains(".")
+                && !name.hasSuffix("-tunnel")
+                && !name.hasSuffix("-server")
+        }
+        // Temel launcher genelde en kısa isimlidir (ör. "code").
+        return candidates.min { $0.lastPathComponent.count < $1.lastPathComponent.count }
     }
 
     func openSettings() {
