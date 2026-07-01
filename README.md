@@ -18,9 +18,11 @@ quietly hides again.
 
 - 🪟 **Edge handle** — a small, unobtrusive grip pinned to the right edge, always within reach.
 - 🌫️ **Glass bar** — real macOS vibrancy (`NSVisualEffectView`) that slides out on hover.
-- 🖱️ **One-click launch** — click an icon to open the app. Optionally opens a **fresh instance** every time.
+- 🖱️ **One-click launch** — click an icon to open the app.
+- 🎯 **Per-app launch mode** — choose *Activate*, *New instance*, or *New window* (`--new-window`, great for VS Code and other Electron apps).
 - ⚙️ **Settings** — pick from your installed apps and **drag to reorder** them.
-- ↕️ **Adjustable position** — slide the handle up or down; it doesn't have to sit dead-center.
+- ↕️ **Adjustable handle position** — slide the handle up or down; it doesn't have to sit dead-center.
+- 🧭 **Bar anchor** — decide whether the bar opens *above*, *centered on*, or *below* the handle.
 - ⏱️ **Auto-hide** — the bar collapses a few seconds after the pointer leaves.
 - 🚀 **Launch at login** — starts with your Mac by default; toggle it off any time.
 - 🧊 **Stays out of the way** — runs as a menu-less agent, floats over every Space and full-screen app.
@@ -64,8 +66,8 @@ Then enable **“Launch at login”** in **Settings → General**.
 ## Usage
 
 1. On first launch, the **Settings** window opens automatically.
-2. In the **Apps** tab, add apps from the installed list (`+`) and drag them to reorder.
-3. In the **General** tab, adjust the **handle position** and **launch-at-login**.
+2. In the **Apps** tab, add apps from the installed list (`+`), drag to reorder, and pick each app's **launch mode**.
+3. In the **General** tab, adjust **launch-at-login**, the **handle position**, and the **bar anchor**.
 4. Hover the handle on the right edge to reveal the bar; click any icon to launch.
 
 Your configuration is stored at:
@@ -107,8 +109,9 @@ build.sh                     # build → icon → bundle → sign
 
 ## Notes
 
-- Some apps (e.g. Safari, Finder) are single-instance by design and will focus their
-  existing window instead of opening a second copy — that's a macOS behavior, not a bug.
+- Some apps (e.g. Safari, Finder, VS Code) are single-instance by design, so *New instance*
+  just focuses the existing app. For those, use **New window** — it passes `--new-window`,
+  which opens a fresh window in the running app (works great with VS Code).
 - The bundled build is code-signed with a private distribution identity. To build your
   own, set `SIGN_ID` to a signing identity from `security find-identity -v -p codesigning`,
   or use `SIGN_ID="-"` for an ad-hoc signature.

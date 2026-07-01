@@ -21,12 +21,21 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Bar açıldığında kulba göre konumu.
+    @Published var barAnchor: BarAnchor = .center {
+        didSet {
+            guard !isLoading, barAnchor != oldValue else { return }
+            save()
+        }
+    }
+
     private var isLoading = false
 
     private struct Persisted: Codable {
         var items: [AppItem]
         var launchAtLogin: Bool
         var handlePositionRatio: Double?
+        var barAnchor: BarAnchor?
     }
 
     private var configURL: URL {
@@ -53,13 +62,15 @@ final class AppStore: ObservableObject {
         items = decoded.items
         launchAtLogin = systemLogin
         handlePositionRatio = decoded.handlePositionRatio ?? 0.5
+        barAnchor = decoded.barAnchor ?? .center
     }
 
     func save() {
         let payload = Persisted(
             items: items,
             launchAtLogin: launchAtLogin,
-            handlePositionRatio: handlePositionRatio)
+            handlePositionRatio: handlePositionRatio,
+            barAnchor: barAnchor)
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: configURL, options: .atomic)
     }
@@ -79,6 +90,12 @@ final class AppStore: ObservableObject {
 
     func move(from source: IndexSet, to destination: Int) {
         items.move(fromOffsets: source, toOffset: destination)
+        save()
+    }
+
+    func setLaunchMode(_ mode: LaunchMode, for app: AppItem) {
+        guard let index = items.firstIndex(where: { $0.id == app.id }) else { return }
+        items[index].launchMode = mode
         save()
     }
 }

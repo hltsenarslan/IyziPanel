@@ -83,6 +83,17 @@ struct SettingsView: View {
                     .controlSize(.small)
                 }
             }
+            Section("Bar Konumu") {
+                Picker("Bar kulba göre", selection: $store.barAnchor) {
+                    ForEach(BarAnchor.allCases) { anchor in
+                        Text(anchor.label).tag(anchor)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("Bar açıldığında kulbun neresinden çıkacağını belirler.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Davranış") {
                 LabeledContent("Otomatik gizleme", value: "\(Int(DockController.autoHideDelay)) sn")
                 LabeledContent("Bar genişliği", value: "\(Int(DockController.barWidth)) px")
@@ -101,9 +112,10 @@ struct SettingsView: View {
             } else {
                 List {
                     ForEach(store.items) { item in
-                        AppRow(item: item, symbol: "minus.circle.fill", tint: .red) {
-                            store.remove(item)
-                        }
+                        DockRow(
+                            item: item,
+                            onModeChange: { store.setLaunchMode($0, for: item) },
+                            onRemove: { store.remove(item) })
                     }
                     .onMove { store.move(from: $0, to: $1) }
                 }
@@ -147,6 +159,41 @@ struct SettingsView: View {
                 .padding()
             Spacer()
         }
+    }
+}
+
+/// Dock listesi satırı: ikon + ad + açılış modu menüsü + çıkar butonu.
+private struct DockRow: View {
+    let item: AppItem
+    let onModeChange: (LaunchMode) -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack {
+            Image(nsImage: item.icon)
+                .resizable()
+                .frame(width: 26, height: 26)
+            Text(item.name)
+            Spacer()
+            Picker("", selection: Binding(
+                get: { item.launchMode },
+                set: { onModeChange($0) }
+            )) {
+                ForEach(LaunchMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 130)
+            .help("Tıklayınca ne olsun?")
+
+            Button(action: onRemove) {
+                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+            .help("Dock'tan çıkar")
+        }
+        .padding(.vertical, 2)
     }
 }
 

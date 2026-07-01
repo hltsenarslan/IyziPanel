@@ -38,14 +38,17 @@ final class DockController {
             self, selector: #selector(screenChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
 
-        // Ayarlardan kulp konumu değişince canlı olarak yeniden konumlan.
-        store.$handlePositionRatio
-            .dropFirst()
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.positionPanel(expanded: self.isExpanded, animated: true)
-            }
-            .store(in: &cancellables)
+        // Ayarlardan kulp/bar konumu değişince canlı olarak yeniden konumlan.
+        Publishers.Merge(
+            store.$handlePositionRatio.map { _ in () },
+            store.$barAnchor.map { _ in () }
+        )
+        .dropFirst()
+        .sink { [weak self] _ in
+            guard let self else { return }
+            self.positionPanel(expanded: self.isExpanded, animated: true)
+        }
+        .store(in: &cancellables)
     }
 
     // MARK: - Panel kurulumu
@@ -96,16 +99,33 @@ final class DockController {
         let width = expanded ? Self.barWidth : Self.collapsedPeek
         let height = expanded ? panelHeight() : Self.handleHeight
 
-        // ratio 0 = üst, 1 = alt. Kullanılabilir alan içinde merkez hesapla.
+        // Kulbun merkez çizgisi: ratio 0 = üst, 1 = alt.
         let margin: CGFloat = 12
         let top = vf.maxY - margin
         let bottom = vf.minY + margin
-        let centerY = top - CGFloat(store.handlePositionRatio) * (top - bottom)
-        let clampedCenter = min(max(centerY, vf.minY + height / 2), vf.maxY - height / 2)
+        let desiredCenter = top - CGFloat(store.handlePositionRatio) * (top - bottom)
+        let handleCenter = min(max(desiredCenter,
+                                   vf.minY + Self.handleHeight / 2),
+                               vf.maxY - Self.handleHeight / 2)
 
-        let y = clampedCenter - height / 2
+        // Bar'ın alt (origin) y'si: kulba göre anchor.
+        let originY: CGFloat
+        if expanded {
+            switch store.barAnchor {
+            case .center:
+                originY = handleCenter - height / 2
+            case .up:    // bar kulbun üstünde
+                originY = handleCenter - Self.handleHeight / 2
+            case .down:  // bar kulbun altında
+                originY = handleCenter + Self.handleHeight / 2 - height
+            }
+        } else {
+            originY = handleCenter - height / 2
+        }
+        let clampedY = min(max(originY, vf.minY), vf.maxY - height)
+
         let x = frame.maxX - width
-        let target = NSRect(x: x, y: y, width: width, height: height)
+        let target = NSRect(x: x, y: clampedY, width: width, height: height)
 
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
@@ -161,8 +181,18 @@ final class DockController {
     private func launch(_ item: AppItem) {
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
-        // Uygulama zaten açık olsa bile her tıklamada yeni bir instance aç.
-        config.createsNewApplicationInstance = true
+
+        switch item.launchMode {
+        case .activate:
+            break
+        case .newInstance:
+            // Zaten açık olsa bile yeni bir kopya (destekleyen uygulamalar).
+            config.createsNewApplicationInstance = true
+        case .newWindow:
+            // Mevcut kopyada yeni pencere aç (VS Code vb. Electron uygulamaları).
+            config.arguments = ["--new-window"]
+        }
+
         NSWorkspace.shared.openApplication(at: item.url, configuration: config) { _, error in
             if let error {
                 NSLog("Uygulama açılamadı: \(error.localizedDescription)")
