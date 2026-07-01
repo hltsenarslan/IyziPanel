@@ -179,34 +179,20 @@ final class DockController {
     // MARK: - Eylemler
 
     private func launch(_ item: AppItem) {
-        // "Yeni pencere": zaten açık uygulamada yeni pencere açmak NSWorkspace ile
-        // mümkün değil (argümanlar yalnızca yeni süreç başlarken geçer). Electron
-        // editörlerinin (VS Code, Cursor, VSCodium) bundle içindeki CLI'siyle çöz.
-        if item.launchMode == .newWindow, let cli = Self.newWindowCLI(for: item.url) {
-            let process = Process()
-            process.executableURL = cli
-            process.arguments = ["--new-window"]
-            do {
-                try process.run()
-            } catch {
-                NSLog("Yeni pencere açılamadı: \(error.localizedDescription)")
-            }
+        // "Yeni pencere": zaten açık bir uygulamada NSWorkspace argümanları yok
+        // sayar (argümanlar yalnızca yeni süreç başlarken geçer). Bunun yerine
+        // bundle'ın ana executable'ını --new-window ile çalıştır; Electron
+        // editörleri (VS Code, Cursor, VSCodium) bunu mevcut kopyaya iletip
+        // yeni pencere açar. Başarısız olursa NSWorkspace'e düş.
+        if item.launchMode == .newWindow, launchNewWindow(item) {
             return
         }
 
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
-
-        switch item.launchMode {
-        case .activate:
-            break
-        case .newInstance:
-            // Zaten açık olsa bile yeni bir kopya (destekleyen uygulamalar).
+        if item.launchMode == .newInstance || item.launchMode == .newWindow {
+            // Uygulama kapalıysa ya da instance'ı destekliyorsa yeni kopya aç.
             config.createsNewApplicationInstance = true
-        case .newWindow:
-            // CLI bulunamadıysa en iyi çaba: yeni süreçte --new-window argümanı.
-            config.createsNewApplicationInstance = true
-            config.arguments = ["--new-window"]
         }
 
         NSWorkspace.shared.openApplication(at: item.url, configuration: config) { _, error in
@@ -216,17 +202,37 @@ final class DockController {
         }
     }
 
-    /// Electron editörlerinin `Contents/Resources/app/bin/` altındaki launcher CLI'si.
+    /// Electron editörünün bundle içindeki CLI'sini `--new-window` ile çalıştırır.
+    /// Ana executable bu argümanı tanımaz; CLI ise mevcut kopyaya yeni pencere
+    /// açtırır. Başarılıysa true.
+    private func launchNewWindow(_ item: AppItem) -> Bool {
+        guard let cli = Self.newWindowCLI(for: item.url) else { return false }
+        let process = Process()
+        process.executableURL = cli
+        process.arguments = ["--new-window"]
+        do {
+            try process.run()
+            return true
+        } catch {
+            NSLog("Yeni pencere açılamadı: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Electron editörlerinin `Contents/Resources/app/bin/` altındaki launcher CLI'si
+    /// (ör. VS Code → `code`, Cursor → `cursor`, VSCodium → `codium`).
     private static func newWindowCLI(for appURL: URL) -> URL? {
         let binDir = appURL.appendingPathComponent("Contents/Resources/app/bin")
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: binDir, includingPropertiesForKeys: [.isExecutableKey]) else { return nil }
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(
+            at: binDir, includingPropertiesForKeys: nil) else { return nil }
 
         let candidates = files.filter { file in
             let name = file.lastPathComponent
             return !name.contains(".")
                 && !name.hasSuffix("-tunnel")
                 && !name.hasSuffix("-server")
+                && fm.isExecutableFile(atPath: file.path)
         }
         // Temel launcher genelde en kısa isimlidir (ör. "code").
         return candidates.min { $0.lastPathComponent.count < $1.lastPathComponent.count }
