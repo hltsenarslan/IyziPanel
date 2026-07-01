@@ -98,6 +98,19 @@ struct SettingsView: View {
                 LabeledContent("Otomatik gizleme", value: "\(Int(DockController.autoHideDelay)) sn")
                 LabeledContent("Bar genişliği", value: "\(Int(DockController.barWidth)) px")
             }
+            Section {
+                Button(role: .destructive) {
+                    NSApplication.shared.terminate(nil)
+                } label: {
+                    Label("IyziPanel'den Çık", systemImage: "power")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+            } footer: {
+                Text("Uygulama Dock'ta görünmez; çıkmak için bu düğmeyi kullanın.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()

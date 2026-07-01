@@ -23,13 +23,9 @@ final class SettingsController: NSObject, NSWindowDelegate {
             window.contentView = NSHostingView(rootView: SettingsView(store: store))
             self.window = window
         }
-        NSApp.setActivationPolicy(.regular)
+        // Dock'ta ikon göstermemek için .accessory (agent) olarak kalıyoruz;
+        // yalnızca pencereyi öne getirip aktifleştiriyoruz.
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        // Ayarlar kapanınca tekrar arka plan (agent) uygulamasına dön.
-        NSApp.setActivationPolicy(.accessory)
     }
 }
